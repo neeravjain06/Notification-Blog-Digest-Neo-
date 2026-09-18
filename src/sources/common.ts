@@ -20,9 +20,20 @@ export async function fetchText(url: string): Promise<string> {
   return text;
 }
 
-/** Ported verbatim. Indian sites use dd/mm/yyyy, which Date.parse reads as mm/dd. */
+/**
+ * Indian government sites use dd/mm/yyyy, which Date.parse reads as mm/dd - hence the
+ * explicit reordering below.
+ *
+ * ISO-8601 must be checked FIRST: the dd/mm/yyyy regex happily matches "26-09-07"
+ * inside "2026-09-07T00:00:00Z" and yields 2007-09-26. RSS and Atom feeds carry ISO
+ * timestamps, so this is a live path, not a theoretical one.
+ */
 export function parseDate(raw: string): string {
   const t = raw.trim();
+
+  const iso8601 = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s]|$)/);
+  if (iso8601) return `${iso8601[1]}-${iso8601[2]}-${iso8601[3]}`;
+
   const m = t.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
   if (m) {
     const dd = m[1]!.padStart(2, "0");

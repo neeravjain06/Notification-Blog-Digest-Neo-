@@ -1,5 +1,7 @@
 import { config } from "./config.js";
+import { runCycle } from "./cycle.js";
 import { checkDuplicate, dedupeKey } from "./dedupe.js";
+import { currentMonth, monthlyCosts } from "./costs.js";
 import { isPipeline } from "./pipelines.js";
 import { fetchPipeline, ReliabilityGateError } from "./sources/index.js";
 import { readPosts, readSeen } from "./store.js";
@@ -63,18 +65,50 @@ async function dryRun(pipeline: Pipeline): Promise<void> {
   console.log(`\nSummary: ${fresh} new, ${dupes} already seen.`);
 }
 
+async function fullRun(pipeline: Pipeline): Promise<void> {
+  console.log(`\n=== ${pipeline} ===`);
+  const report = await runCycle(pipeline);
+
+  if (report.aborted) {
+    console.error(`ABORTED: ${report.error}`);
+    return;
+  }
+
+  console.log(`Parsed ${report.parsed}, published ${report.published}.`);
+
+  if (report.skipped.length) {
+    console.log(`Skipped ${report.skipped.length}:`);
+    for (const s of report.skipped) {
+      console.log(`  [${s.outcome}] ${s.sourceRef} - ${s.reason}`);
+    }
+  }
+
+  // Guard the slice: slice(-0) returns the whole array, which would print every
+  // existing post on a run that published nothing.
+  if (report.published > 0) {
+    for (const post of readPosts(pipeline).slice(-report.published)) {
+      console.log(`\n  --- ${post.title}`);
+      console.log(`  engine=${post.engine} industries=${post.industries.join(",")}`);
+      console.log(`  ${post.excerpt}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const { pipelines, dry } = parseArgs(process.argv.slice(2));
 
   for (const pipeline of pipelines) {
-    if (dry) {
-      await dryRun(pipeline);
-    } else {
-      console.error(
-        `Full run for "${pipeline}" needs the summariser (Phase 2). Use --dry for now.`,
-      );
-      process.exit(1);
-    }
+    if (dry) await dryRun(pipeline);
+    else await fullRun(pipeline);
+  }
+
+  if (!dry) {
+    const month = currentMonth();
+    const c = monthlyCosts(month);
+    console.log(
+      `\nAI spend ${month}: ${c.calls} calls, ${c.totalTokens} tokens, $${c.totalUsd.toFixed(4)}` +
+        (c.hasUnpriced ? " (some calls used an unpriced model - total understates)" : ""),
+    );
   }
 }
 

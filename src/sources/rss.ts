@@ -7,7 +7,11 @@ import { clean, fetchText, parseDate } from "./common.js";
  * Handles the two element namings: RSS <item><link>text</link>, Atom <entry><link href="">.
  */
 export async function scrapeRssFeed(src: RssSource, limit = 15): Promise<RawItem[]> {
-  const xml = await fetchText(src.url);
+  return parseFeed(await fetchText(src.url), src, limit);
+}
+
+/** Split out from fetching so feed parsing is testable without a network round trip. */
+export function parseFeed(xml: string, src: RssSource, limit = 15): RawItem[] {
   const $ = cheerio.load(xml, { xml: true });
   const out: RawItem[] = [];
 

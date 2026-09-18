@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { costOf, monthlyCosts } from "./costs.js";
 import { checkDuplicate, dedupeKey, titleSimilarity } from "./dedupe.js";
+import { guardrailViolation } from "./guardrails.js";
+import { tagIndustries } from "./industries.js";
 import { isJunkTitle, parseDate, rowIsValid, runChannel } from "./sources/common.js";
-import type { Post, RawItem, SeenEntry } from "./types.js";
+import { parseFeed } from "./sources/rss.js";
+import type { CostEntry, Post, RawItem, SeenEntry } from "./types.js";
 
 let passed = 0;
 function check(name: string, fn: () => void): void {
@@ -36,6 +40,14 @@ check("dd/mm/yyyy is read as Indian order, not US", () => {
 });
 check("two-digit year expands to 20xx", () => {
   assert.equal(parseDate("03-01-25"), "2025-01-03");
+});
+check("ISO-8601 is not mangled by the dd/mm/yyyy branch", () => {
+  // The dd/mm/yyyy regex matches "26-09-07" inside this and would yield 2007-09-26.
+  assert.equal(parseDate("2026-09-07T00:00:00Z"), "2026-09-07");
+  assert.equal(parseDate("2026-09-07"), "2026-09-07");
+});
+check("RFC-822 pubDate parses", () => {
+  assert.equal(parseDate("Wed, 16 Sep 2026 10:00:00 +0530"), "2026-09-16");
 });
 check("unparseable date does not throw", () => {
   assert.match(parseDate("garbage"), /^\d{4}-\d{2}-\d{2}$/);
@@ -189,6 +201,161 @@ check("an old post beyond the 90-day window does not block a new item", () => {
     title: "Amendment in Export Policy of Wheat Flour and related products - corrigendum",
   });
   assert.equal(checkDuplicate(item, [], posts).duplicate, false);
+});
+
+console.log("\n--- feed parsing ---");
+check("RSS 2.0 items parse", () => {
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel>
+    <title>Trade Wire</title>
+    <item>
+      <title>India revises pre-shipment inspection timelines</title>
+      <link>https://example.com/story-one</link>
+      <pubDate>Wed, 16 Sep 2026 10:00:00 +0530</pubDate>
+      <description>DGFT has extended the window for backlog certificates.</description>
+    </item>
+  </channel></rss>`;
+  const items = parseFeed(xml, { id: "tw", label: "Trade Wire", url: "https://example.com/feed" });
+  assert.equal(items.length, 1);
+  assert.equal(items[0]!.sourceUrl, "https://example.com/story-one");
+  assert.equal(items[0]!.date, "2026-09-16");
+  assert.equal(items[0]!.pipeline, "news");
+  assert.match(items[0]!.rawSubject, /backlog certificates/);
+});
+check("Atom entries parse, taking link from the href attribute", () => {
+  const xml = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+    <entry>
+      <title>Customs portal adds open API for certificates of origin</title>
+      <link href="https://example.com/atom-story"/>
+      <published>2026-09-07T00:00:00Z</published>
+      <summary>Exporters can now integrate directly.</summary>
+    </entry>
+  </feed>`;
+  const items = parseFeed(xml, { id: "at", label: "Atom", url: "https://example.com/atom" });
+  assert.equal(items.length, 1);
+  assert.equal(items[0]!.sourceUrl, "https://example.com/atom-story");
+  assert.equal(items[0]!.date, "2026-09-07");
+});
+check("an entry with no link is dropped rather than published linkless", () => {
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel>
+    <item><title>Headline with no link at all here</title></item>
+  </channel></rss>`;
+  assert.equal(parseFeed(xml, { id: "x", label: "X", url: "u" }).length, 0);
+});
+check("the limit is respected", () => {
+  const items = Array.from({ length: 30 }, (_, i) =>
+    `<item><title>Story number ${i} about trade policy</title><link>https://ex.com/${i}</link></item>`,
+  ).join("");
+  const xml = `<?xml version="1.0"?><rss version="2.0"><channel>${items}</channel></rss>`;
+  assert.equal(parseFeed(xml, { id: "x", label: "X", url: "u" }, 5).length, 5);
+});
+
+console.log("\n--- guardrails ---");
+check("a stated duty percentage is rejected", () => {
+  assert.notEqual(guardrailViolation("duty is 10%"), null);
+  assert.notEqual(guardrailViolation("The customs duty of 12.5% applies"), null);
+  assert.notEqual(guardrailViolation("a 5% BCD now applies"), null);
+});
+check("a legal conclusion is rejected", () => {
+  assert.notEqual(guardrailViolation("You are legally required to amend the filing."), null);
+  assert.notEqual(guardrailViolation("This constitutes legal advice."), null);
+  assert.notEqual(guardrailViolation("Clearance is guaranteed to complete."), null);
+});
+check("a hard compliance deadline is rejected", () => {
+  assert.notEqual(guardrailViolation("You must comply by 31/03/2026."), null);
+  assert.notEqual(guardrailViolation("The deadline is 15-04-26 for all filings."), null);
+});
+check("claiming every client is affected is rejected", () => {
+  assert.notEqual(guardrailViolation("All our clients are affected by this change."), null);
+});
+check("a clean paragraph passes", () => {
+  assert.equal(
+    guardrailViolation(
+      "DGFT has revised the timeline for issuing pre-shipment inspection certificates. " +
+        "If you import scrap through Cochin, check whether your PSIA registration is current. " +
+        "Open the official notice and confirm the position with Neo's CHA before filing.",
+    ),
+    null,
+  );
+});
+check("the violation reason names the offending text", () => {
+  const reason = guardrailViolation("duty is 10%");
+  assert.match(reason ?? "", /duty percentage/);
+  assert.match(reason ?? "", /10%/);
+});
+
+console.log("\n--- industry tagging ---");
+check("keywords in the text are matched", () => {
+  assert.deepEqual(tagIndustries("Export policy for cashew kernel shipments", []), ["cashew"]);
+});
+check("model tags and keyword hits are unioned without duplicates", () => {
+  const tags = tagIndustries("Steel billet import policy", ["steel", "Steel", "steel"]);
+  assert.deepEqual(tags, ["steel"]);
+  assert.equal(new Set(tags).size, tags.length);
+});
+check("an industry the model invented is discarded", () => {
+  assert.deepEqual(tagIndustries("A general trade circular about filings", ["unicorns"]), [
+    "general-trade",
+  ]);
+});
+check("nothing matched falls back to general-trade", () => {
+  assert.deepEqual(tagIndustries("A procedural circular about portal downtime", []), [
+    "general-trade",
+  ]);
+});
+check("general-trade is dropped once a real industry matches", () => {
+  const tags = tagIndustries("Cashew kernel policy", ["general-trade", "cashew"]);
+  assert.deepEqual(tags, ["cashew"]);
+});
+check("keywords match whole words, not substrings", () => {
+  // "ore" must not fire on "regarding"/"issuance"; "tea" must not fire on "instead".
+  assert.deepEqual(
+    tagIndustries("Revision in timeline for issuance of PSIC - regarding", []),
+    ["general-trade"],
+  );
+  assert.deepEqual(tagIndustries("Guidance issued instead of a circular", []), ["general-trade"]);
+});
+check("a multi-word keyword still matches across whitespace", () => {
+  assert.ok(tagIndustries("Export of iron   ore fines", []).includes("mining"));
+});
+check("a genuine mining notice is still tagged", () => {
+  assert.ok(tagIndustries("Policy for import of bauxite ore", []).includes("mining"));
+});
+
+console.log("\n--- costs ---");
+check("a priced model computes USD from tokens", () => {
+  // 1M input @ $5 + 1M output @ $25 = $30
+  assert.equal(costOf("claude-opus-5", 1_000_000, 1_000_000), 30);
+});
+check("the stub model costs nothing", () => {
+  assert.equal(costOf("stub", 5000, 2000), 0);
+});
+check("an unpriced model yields null, not a wrong number", () => {
+  assert.equal(costOf("some-future-model", 1000, 1000), null);
+});
+check("monthly aggregate groups by model and pipeline", () => {
+  const rows: CostEntry[] = [
+    { id: "1", pipeline: "notifications", postId: null, sourceRef: "a", model: "claude-opus-5",
+      inputTokens: 1000, outputTokens: 500, costUsd: costOf("claude-opus-5", 1000, 500), createdAt: "2026-09-01T00:00:00Z" },
+    { id: "2", pipeline: "news", postId: null, sourceRef: "b", model: "claude-opus-5",
+      inputTokens: 2000, outputTokens: 1000, costUsd: costOf("claude-opus-5", 2000, 1000), createdAt: "2026-09-02T00:00:00Z" },
+    { id: "3", pipeline: "news", postId: null, sourceRef: "c", model: "claude-opus-5",
+      inputTokens: 9, outputTokens: 9, costUsd: null, createdAt: "2026-08-31T00:00:00Z" },
+  ];
+  const m = monthlyCosts("2026-09", rows);
+  assert.equal(m.calls, 2, "August row must be excluded");
+  assert.equal(m.totalTokens, 4500);
+  assert.equal(m.byModel["claude-opus-5"]?.calls, 2);
+  assert.equal(m.byPipeline["news"]?.calls, 1);
+  assert.equal(m.byPipeline["notifications"]?.calls, 1);
+});
+check("an unpriced call is flagged so the total is not read as complete", () => {
+  const rows: CostEntry[] = [
+    { id: "1", pipeline: "blogs", postId: null, sourceRef: "a", model: "mystery",
+      inputTokens: 100, outputTokens: 50, costUsd: null, createdAt: "2026-09-01T00:00:00Z" },
+  ];
+  const m = monthlyCosts("2026-09", rows);
+  assert.equal(m.hasUnpriced, true);
+  assert.equal(m.totalTokens, 150, "tokens are still recorded for an unpriced model");
 });
 
 // Async checks run last so the sync output above stays ordered.
