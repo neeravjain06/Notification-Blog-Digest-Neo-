@@ -1,0 +1,106 @@
+[
+  {
+    "id": "cashew",
+    "label": "Cashew",
+    "keywords": ["cashew", "kernel", "hs 0801"]
+  },
+  {
+    "id": "seafood",
+    "label": "Seafood / aquatic",
+    "keywords": ["shrimp", "prawn", "seafood", "aquatic", "fish", "marine product"]
+  },
+  {
+    "id": "steel",
+    "label": "Steel",
+    "keywords": [
+      "steel",
+      "hrc",
+      "crc",
+      "iron or steel",
+      "flat-rolled",
+      "flat rolled",
+      "billet",
+      "ferro",
+      "aluminium",
+      "aluminum",
+      "copper"
+    ]
+  },
+  {
+    "id": "cement",
+    "label": "Cement",
+    "keywords": ["cement", "clinker"]
+  },
+  {
+    "id": "chemicals",
+    "label": "Chemicals",
+    "keywords": [
+      "chemical",
+      "polymer",
+      "plastic",
+      "resin",
+      "methanol",
+      "acid",
+      "pharma",
+      "drug",
+      "fertilizer",
+      "hazardous",
+      "msds"
+    ]
+  },
+  {
+    "id": "automobiles",
+    "label": "Automobiles",
+    "keywords": ["vehicle", "automobile", "motor vehicle", "lcv", "auto part", "tyre", "tire"]
+  },
+  {
+    "id": "mining",
+    "label": "Mining",
+    "keywords": ["ore", "mining", "mineral", "coal", "bauxite", "iron ore"]
+  },
+  {
+    "id": "textiles",
+    "label": "Textiles",
+    "keywords": ["textile", "cotton", "apparel", "garment", "fabric", "yarn", "silk"]
+  },
+  {
+    "id": "agro",
+    "label": "Agro products",
+    "keywords": [
+      "agro",
+      "agriculture",
+      "spice",
+      "pepper",
+      "coffee",
+      "tea",
+      "rubber",
+      "rice",
+      "wheat",
+      "pulse",
+      "edible oil"
+    ]
+  },
+  {
+    "id": "sanitary-wares",
+    "label": "Sanitary wares",
+    "keywords": ["sanitary", "ceramic ware", "wash basin", "toilet"]
+  },
+  {
+    "id": "industrial-raw-materials",
+    "label": "Industrial raw materials",
+    "keywords": [
+      "raw material",
+      "industrial input",
+      "primary form",
+      "gold",
+      "precious metal",
+      "trq",
+      "epcg"
+    ]
+  },
+  {
+    "id": "general-trade",
+    "label": "General trade / all clients",
+    "keywords": []
+  }
+]
