@@ -4,6 +4,7 @@ import { checkDuplicate, dedupeKey, titleSimilarity } from "./dedupe.js";
 import { guardrailViolation } from "./guardrails.js";
 import { tagIndustries } from "./industries.js";
 import { LlmHttpError, normalizeBaseUrl } from "./llm.js";
+import { isTradeRelevant } from "./relevance.js";
 import { classify } from "./summarize.js";
 import { isJunkTitle, parseDate, rowIsValid, runChannel } from "./sources/common.js";
 import { parseFeed } from "./sources/rss.js";
@@ -51,6 +52,24 @@ check("a network failure is transient; a bad JSON body or code bug is not", () =
   assert.deepEqual(classify(new TypeError("fetch failed")), { kind: "transient", fatal: false });
   assert.deepEqual(classify(new SyntaxError("Unexpected token")), { kind: "quality" });
   assert.deepEqual(classify(new TypeError("Cannot read properties of undefined")), { kind: "quality" });
+});
+
+console.log("\n--- news relevance ---");
+const news = (title: string, bodyText?: string): RawItem =>
+  notice({ pipeline: "news", source: "rss", title, bodyText, sourceUrl: "https://example.com/a" });
+check("a trade story is kept", () => {
+  assert.equal(isTradeRelevant(news("India's steel exports rise as tariff worries ease")), true);
+});
+check("an off-topic business story is dropped", () => {
+  assert.equal(isTradeRelevant(news("Titan open to acquiring smaller watch brands, sees strong growth")), false);
+  assert.equal(isTradeRelevant(news("Home loan rates in Sept start at 7%: top lenders compared")), false);
+});
+check("the feed description counts, not just the title", () => {
+  assert.equal(isTradeRelevant(news("Govt announces new scheme", "It will support exporters in Kerala.")), true);
+});
+check("keywords match whole words, not substrings", () => {
+  assert.equal(isTradeRelevant(news("Airport terminal opens", "Passenger transport report")), false);
+  assert.equal(isTradeRelevant(news("Tea board news", "Rapport with partners improves")), false);
 });
 
 console.log("\n--- date parsing ---");

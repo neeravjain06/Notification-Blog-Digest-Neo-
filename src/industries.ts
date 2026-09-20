@@ -9,7 +9,7 @@ const VALID_IDS = new Set(industries.map((i) => i.id));
  * "regarding" and "issuance", which tagged procedural notices as mining.
  * Interior spaces match any run of whitespace so "iron ore" survives line wrapping.
  */
-function keywordPattern(keyword: string): RegExp {
+export function keywordPattern(keyword: string): RegExp {
   const escaped = keyword
     .trim()
     .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")

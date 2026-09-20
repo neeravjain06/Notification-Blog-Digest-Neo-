@@ -32,6 +32,8 @@ export type ScrapeBundle = {
   health: ChannelHealth[];
   okChannels: number;
   totalChannels: number;
+  /** News items dropped for not mentioning any trade term. Always 0 for other pipelines. */
+  filteredOut: number;
 };
 
 /** What the model is asked to return. Mirrors the JSON schema in summarize.ts. */

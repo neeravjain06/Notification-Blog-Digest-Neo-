@@ -47,7 +47,7 @@ async function dryRun(pipeline: Pipeline): Promise<void> {
   let fresh = 0;
   let dupes = 0;
 
-  console.log(`\nItems (${bundle.items.length} parsed):`);
+  console.log(`\nItems (${bundle.items.length} relevant, ${bundle.filteredOut} filtered out as off-topic):`);
   for (const item of bundle.items) {
     const dup = checkDuplicate(item, seen, posts);
     if (dup.duplicate) {
@@ -74,7 +74,7 @@ async function fullRun(pipeline: Pipeline): Promise<void> {
     return;
   }
 
-  console.log(`Parsed ${report.parsed}, published ${report.published}.`);
+  console.log(`Parsed ${report.parsed} (+${report.filtered} filtered as off-topic), published ${report.published}.`);
 
   if (report.skipped.length) {
     console.log(`Skipped ${report.skipped.length}:`);

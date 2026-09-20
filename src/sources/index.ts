@@ -1,6 +1,7 @@
 import { config, rssSources } from "../config.js";
 import type { ChannelHealth, Pipeline, RawItem, ScrapeBundle } from "../types.js";
 import { scrapeCbicCirculars, scrapeCbicNotifications } from "./cbic.js";
+import { isTradeRelevant } from "../relevance.js";
 import { runChannel, type ChannelResult } from "./common.js";
 import { scrapeDgftCategory } from "./dgft.js";
 import { scrapeRssFeed } from "./rss.js";
@@ -41,7 +42,7 @@ function channelsFor(pipeline: Pipeline): Array<Promise<ChannelResult>> {
 export async function fetchPipeline(pipeline: Pipeline): Promise<ScrapeBundle> {
   const jobs = channelsFor(pipeline);
   if (!jobs.length) {
-    return { items: [], health: [], okChannels: 0, totalChannels: 0 };
+    return { items: [], health: [], okChannels: 0, totalChannels: 0, filteredOut: 0 };
   }
 
   const results = await Promise.all(jobs);
@@ -70,6 +71,9 @@ export async function fetchPipeline(pipeline: Pipeline): Promise<ScrapeBundle> {
     }
   }
 
-  items.sort((a, b) => b.date.localeCompare(a.date));
-  return { items, health, okChannels, totalChannels: jobs.length };
+  // Applied after the health gate on purpose: an off-topic feed is healthy, just not useful.
+  const kept = pipeline === "news" ? items.filter(isTradeRelevant) : items;
+
+  kept.sort((a, b) => b.date.localeCompare(a.date));
+  return { items: kept, health, okChannels, totalChannels: jobs.length, filteredOut: items.length - kept.length };
 }

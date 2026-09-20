@@ -11,6 +11,8 @@ import type { Pipeline } from "./types.js";
 // concurrent cycles would clobber each other's writes. Move to a real DB before scaling out.
 let running: Pipeline | null = null;
 
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
 async function runLocked(pipeline: Pipeline): Promise<CycleReport | "busy"> {
   if (running) return "busy";
   running = pipeline;
@@ -99,6 +101,10 @@ function schedule(): void {
     const hours = PIPELINES[pipeline].cadence === "blog" ? config.blogIntervalHours : config.scanIntervalHours;
     const tick = async (): Promise<void> => {
       try {
+        // Wait for the lock instead of skipping: all pipelines fire at boot, and a dropped
+        // blogs tick would not run again for a week. Safe without a race - `running` is set
+        // synchronously inside runLocked, so only one waiter can win each time it clears.
+        while (running) await sleep(5_000);
         const r = await runLocked(pipeline);
         if (r === "busy") console.log(`[scheduler] ${pipeline} skipped - another cycle is running`);
         else if (r.aborted) console.error(`[scheduler] ${pipeline} aborted: ${r.error}`);

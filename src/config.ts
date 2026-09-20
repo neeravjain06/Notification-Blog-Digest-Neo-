@@ -122,6 +122,7 @@ export const config = {
 export const industries = loadJsonConfig<Industry>("industries.json");
 export const rssSources = loadJsonConfig<RssSource>("sources.json");
 export const blogTopics = loadJsonConfig<BlogTopic>("blog-topics.json");
+export const newsKeywords = loadJsonConfig<string>("news-keywords.json");
 
 if (config.aiProvider === "stub") {
   console.warn(

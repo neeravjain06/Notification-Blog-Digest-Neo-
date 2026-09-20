@@ -17,6 +17,8 @@ export type CycleReport = {
   aborted: boolean;
   error?: string;
   parsed: number;
+  /** Items dropped as off-topic before dedupe (news only). */
+  filtered: number;
   published: number;
   skipped: Array<{ sourceRef: string; outcome: Outcome; reason: string }>;
 };
@@ -49,6 +51,7 @@ export async function runCycle(pipeline: Pipeline): Promise<CycleReport> {
     pipeline,
     aborted: false,
     parsed: 0,
+    filtered: 0,
     published: 0,
     skipped: [],
   };
@@ -77,6 +80,7 @@ export async function runCycle(pipeline: Pipeline): Promise<CycleReport> {
   }
 
   report.parsed = bundle.items.length;
+  report.filtered = bundle.filteredOut;
   ps.lastHealth = bundle.health;
 
   const seen = readSeen();
