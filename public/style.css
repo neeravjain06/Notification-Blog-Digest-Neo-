@@ -1,0 +1,31 @@
+:root { --bg: #f6f7f9; --card: #fff; --text: #1b1f24; --muted: #667085; --line: #e3e6ea; --accent: #0b5cad; --bad: #b42318; --badbg: #fee4e2; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171b; --card: #1c2026; --text: #e8eaed; --muted: #98a2b3; --line: #2c323a; --accent: #6ab0f3; --bad: #fda29b; --badbg: #55160c; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
+header > a { font-weight: 700; color: var(--text); text-decoration: none; }
+header small { color: var(--muted); font-weight: 400; }
+nav a { margin-right: 16px; color: var(--accent); text-decoration: none; }
+main { max-width: 820px; margin: 0 auto; padding: 16px; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.chip { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 2px 10px; font-size: 13px; cursor: pointer; }
+.chip.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+.card h2 { margin: 0 0 4px; font-size: 18px; }
+.meta { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.badge { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 4px; border: 1px solid var(--line); }
+.badge.stub { color: var(--bad); background: var(--badbg); border-color: var(--bad); }
+.impact { border-left: 3px solid var(--accent); padding-left: 10px; margin: 10px 0; }
+.disclaimer { font-size: 12px; color: var(--muted); margin-top: 10px; }
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--accent); }
+h3 { font-size: 16px; margin: 14px 0 4px; }
+input, button { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+button { cursor: pointer; }
+button:disabled { opacity: .5; cursor: wait; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 13px; }

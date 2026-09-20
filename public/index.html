@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neo Media Center (test)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header><a href="/">Neo Media Center <small>test site</small></a>
+<nav><a href="/notifications">Notifications</a><a href="/news">News</a><a href="/blogs">Blogs</a></nav></header>
+<main>
+<h1>Test site</h1>
+<p class="muted">Three pages showing what each pipeline has published. This is a testing surface, not the production site.</p>
+<ul>
+  <li><a href="/notifications">Customs Notifications</a> - CBIC and DGFT</li>
+  <li><a href="/news">News</a> - trade and economy RSS</li>
+  <li><a href="/blogs">Blogs</a> - long-form commentary</li>
+</ul>
+
+<h2>Admin</h2>
+<p class="muted">Needs the admin token (DIGEST_ADMIN_TOKEN). It is kept in this browser only. "Run now" makes real, billed LLM calls.</p>
+<div class="row">
+  <input id="token" type="password" placeholder="admin token" autocomplete="off">
+  <button id="status">Status</button>
+  <button id="costs">Costs</button>
+</div>
+<div class="row" id="runs">
+  <button data-run="notifications">Run notifications</button>
+  <button data-run="news">Run news</button>
+  <button data-run="blogs">Run blogs</button>
+</div>
+<pre id="out">Nothing yet.</pre>
+</main>
+<script>
+const out = document.getElementById("out");
+const tokenEl = document.getElementById("token");
+try { tokenEl.value = localStorage.getItem("digestToken") || ""; } catch {}
+
+async function call(method, url) {
+  try { localStorage.setItem("digestToken", tokenEl.value); } catch {}
+  out.textContent = "Working...";
+  try {
+    const res = await fetch(url, { method, headers: { Authorization: `Bearer ${tokenEl.value}` } });
+    const body = await res.json().catch(() => ({}));
+    out.textContent = `HTTP ${res.status}\n` + JSON.stringify(body, null, 2);
+  } catch (e) {
+    out.textContent = "Request failed: " + e.message;
+  }
+}
+
+document.getElementById("status").onclick = () => call("GET", "/api/status");
+document.getElementById("costs").onclick = () => call("GET", "/api/costs");
+document.getElementById("runs").onclick = async (e) => {
+  const b = e.target.closest("button[data-run]");
+  if (!b) return;
+  document.querySelectorAll("#runs button").forEach((x) => (x.disabled = true));
+  await call("POST", `/api/run/${b.dataset.run}`);
+  document.querySelectorAll("#runs button").forEach((x) => (x.disabled = false));
+};
+</script>
+</body>
+</html>

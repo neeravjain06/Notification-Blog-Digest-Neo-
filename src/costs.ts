@@ -2,12 +2,15 @@ import { randomUUID } from "node:crypto";
 import { readCosts, writeCosts } from "./store.js";
 import type { CostEntry, Pipeline } from "./types.js";
 
-/** USD per 1M tokens. Hand-maintained; gains a row when a provider is decided. */
+/**
+ * USD per 1M tokens. Hand-maintained, and deliberately does not include OpenRouter's
+ * gpt-4o / gpt-4o-mini rates yet - those change over time and vary by the underlying
+ * provider OpenRouter routes to, and a wrong number silently baked into a client's cost
+ * ledger is worse than an honest null. Add real verified rates here once the key is live
+ * and you can pull them from https://openrouter.ai/models or the account's own billing.
+ */
 const PRICES: Record<string, { input: number; output: number }> = {
   stub: { input: 0, output: 0 },
-  "claude-opus-5": { input: 5, output: 25 },
-  "claude-sonnet-5": { input: 2, output: 10 },
-  "claude-haiku-4-5": { input: 1, output: 5 },
 };
 
 /** null for an unpriced model - tokens are still recorded rather than a wrong number. */

@@ -3,6 +3,8 @@ import { costOf, monthlyCosts } from "./costs.js";
 import { checkDuplicate, dedupeKey, titleSimilarity } from "./dedupe.js";
 import { guardrailViolation } from "./guardrails.js";
 import { tagIndustries } from "./industries.js";
+import { LlmHttpError, normalizeBaseUrl } from "./llm.js";
+import { classify } from "./summarize.js";
 import { isJunkTitle, parseDate, rowIsValid, runChannel } from "./sources/common.js";
 import { parseFeed } from "./sources/rss.js";
 import type { CostEntry, Post, RawItem, SeenEntry } from "./types.js";
@@ -33,6 +35,23 @@ function notice(over: Partial<RawItem> = {}): RawItem {
     ...over,
   };
 }
+
+console.log("\n--- LLM failure classification ---");
+check("a bad key or model is fatal, so the cycle stops", () => {
+  for (const status of [400, 401, 402, 403, 404]) {
+    assert.deepEqual(classify(new LlmHttpError("x", status)), { kind: "transient", fatal: true });
+  }
+});
+check("rate limits and 5xx are retryable, not fatal", () => {
+  for (const status of [429, 500, 502, 503]) {
+    assert.deepEqual(classify(new LlmHttpError("x", status)), { kind: "transient", fatal: false });
+  }
+});
+check("a network failure is transient; a bad JSON body or code bug is not", () => {
+  assert.deepEqual(classify(new TypeError("fetch failed")), { kind: "transient", fatal: false });
+  assert.deepEqual(classify(new SyntaxError("Unexpected token")), { kind: "quality" });
+  assert.deepEqual(classify(new TypeError("Cannot read properties of undefined")), { kind: "quality" });
+});
 
 console.log("\n--- date parsing ---");
 check("dd/mm/yyyy is read as Indian order, not US", () => {
@@ -249,6 +268,14 @@ check("the limit is respected", () => {
   assert.equal(parseFeed(xml, { id: "x", label: "X", url: "u" }, 5).length, 5);
 });
 
+console.log("\n--- LLM base URL ---");
+check("a trailing slash does not produce a double-slash request URL", () => {
+  assert.equal(normalizeBaseUrl("https://openrouter.ai/api/v1/"), "https://openrouter.ai/api/v1");
+});
+check("no trailing slash is left unchanged", () => {
+  assert.equal(normalizeBaseUrl("https://openrouter.ai/api/v1"), "https://openrouter.ai/api/v1");
+});
+
 console.log("\n--- guardrails ---");
 check("a stated duty percentage is rejected", () => {
   assert.notEqual(guardrailViolation("duty is 10%"), null);
@@ -322,29 +349,25 @@ check("a genuine mining notice is still tagged", () => {
 });
 
 console.log("\n--- costs ---");
-check("a priced model computes USD from tokens", () => {
-  // 1M input @ $5 + 1M output @ $25 = $30
-  assert.equal(costOf("claude-opus-5", 1_000_000, 1_000_000), 30);
-});
 check("the stub model costs nothing", () => {
   assert.equal(costOf("stub", 5000, 2000), 0);
 });
-check("an unpriced model yields null, not a wrong number", () => {
-  assert.equal(costOf("some-future-model", 1000, 1000), null);
+check("an unpriced model (e.g. gpt-4o-mini, not in the table yet) yields null, not a wrong number", () => {
+  assert.equal(costOf("openai/gpt-4o-mini", 1000, 1000), null);
 });
 check("monthly aggregate groups by model and pipeline", () => {
   const rows: CostEntry[] = [
-    { id: "1", pipeline: "notifications", postId: null, sourceRef: "a", model: "claude-opus-5",
-      inputTokens: 1000, outputTokens: 500, costUsd: costOf("claude-opus-5", 1000, 500), createdAt: "2026-09-01T00:00:00Z" },
-    { id: "2", pipeline: "news", postId: null, sourceRef: "b", model: "claude-opus-5",
-      inputTokens: 2000, outputTokens: 1000, costUsd: costOf("claude-opus-5", 2000, 1000), createdAt: "2026-09-02T00:00:00Z" },
-    { id: "3", pipeline: "news", postId: null, sourceRef: "c", model: "claude-opus-5",
+    { id: "1", pipeline: "notifications", postId: null, sourceRef: "a", model: "openai/gpt-4o-mini",
+      inputTokens: 1000, outputTokens: 500, costUsd: null, createdAt: "2026-09-01T00:00:00Z" },
+    { id: "2", pipeline: "news", postId: null, sourceRef: "b", model: "openai/gpt-4o-mini",
+      inputTokens: 2000, outputTokens: 1000, costUsd: null, createdAt: "2026-09-02T00:00:00Z" },
+    { id: "3", pipeline: "news", postId: null, sourceRef: "c", model: "openai/gpt-4o-mini",
       inputTokens: 9, outputTokens: 9, costUsd: null, createdAt: "2026-08-31T00:00:00Z" },
   ];
   const m = monthlyCosts("2026-09", rows);
   assert.equal(m.calls, 2, "August row must be excluded");
   assert.equal(m.totalTokens, 4500);
-  assert.equal(m.byModel["claude-opus-5"]?.calls, 2);
+  assert.equal(m.byModel["openai/gpt-4o-mini"]?.calls, 2);
   assert.equal(m.byPipeline["news"]?.calls, 1);
   assert.equal(m.byPipeline["notifications"]?.calls, 1);
 });

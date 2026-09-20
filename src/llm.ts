@@ -1,6 +1,17 @@
 import { config } from "./config.js";
 import type { RawItem } from "./types.js";
 
+/** Carries the HTTP status so callers can tell a retryable failure from a config error. */
+export class LlmHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "LlmHttpError";
+  }
+}
+
 export type ModelResult = {
   json: Record<string, unknown>;
   usage: { inputTokens: number; outputTokens: number };
@@ -10,11 +21,11 @@ export type ModelResult = {
 /**
  * THE PLACEHOLDER SEAM.
  *
- * The client's LLM provider and key are not available yet. Everything upstream and
- * downstream of this function is provider-agnostic, so when the key arrives only the
- * body of one branch below changes, plus one row in the costs.ts price table.
+ * The client's LLM key is not available yet. Everything upstream and downstream of
+ * this function is provider-agnostic, so when the key arrives only the body of one
+ * branch below runs, plus one row in the costs.ts price table.
  *
- * `item` is passed only so the stub has source text to echo; real providers ignore it.
+ * `item` is passed only so the stub has source text to echo; the real call ignores it.
  */
 export async function callModel(
   system: string,
@@ -25,12 +36,10 @@ export async function callModel(
   switch (config.aiProvider) {
     case "stub":
       return stubModel(item);
-    case "anthropic":
-      return anthropicModel(system, user, schema);
+    case "openai":
+      return openaiModel(system, user, schema);
     default:
-      throw new Error(
-        `Unknown AI_PROVIDER "${config.aiProvider}". Supported: stub, anthropic.`,
-      );
+      throw new Error(`Unknown AI_PROVIDER "${config.aiProvider}". Supported: stub, openai.`);
   }
 }
 
@@ -79,48 +88,70 @@ function stubModel(item: RawItem): ModelResult {
   };
 }
 
+/** A copy-pasted base URL commonly carries a trailing slash; strip it before joining. */
+export function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
 /**
- * Real implementation, dormant until `npm i @anthropic-ai/sdk` and a key.
- * Uses structured outputs so the schema is enforced server-side rather than being
- * JSON-parsed out of prose.
+ * Real implementation. Matches Neo's own scaffold env file: OpenRouter, reached
+ * through the plain OpenAI-compatible /chat/completions REST endpoint. That's a plain
+ * JSON POST, so this needs no SDK dependency - a fetch call does the whole job.
  */
-async function anthropicModel(
+async function openaiModel(
   system: string,
   user: string,
   schema: object,
 ): Promise<ModelResult> {
-  // Non-literal specifier: the SDK is deliberately not a dependency until the client
-  // picks a provider, so this must not be a compile-time import.
-  const specifier = "@anthropic-ai/sdk";
-  const mod = await import(specifier).catch(() => {
-    throw new Error(
-      "AI_PROVIDER=anthropic but @anthropic-ai/sdk is not installed. Run: npm i @anthropic-ai/sdk",
-    );
+  if (!config.aiModel) {
+    throw new Error("AI_PROVIDER=openai but no model is set (DIGEST_AI_MODEL or AI_MODEL)");
+  }
+
+  const res = await fetch(`${normalizeBaseUrl(config.aiBaseUrl)}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.aiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.aiModel,
+      messages: [
+        { role: "system", content: system },
+        {
+          role: "user",
+          content:
+            `${user}\n\nRespond with ONLY a single JSON object matching this schema - no ` +
+            `markdown fences, no commentary before or after it:\n${JSON.stringify(schema)}`,
+        },
+      ],
+      // json_schema strict-mode support varies across OpenRouter's underlying models;
+      // json_object is honoured broadly. The schema is enforced downstream by parseDraft().
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    }),
+    // Without a timeout one hung connection stalls the whole cycle and holds the run lock.
+    signal: AbortSignal.timeout(90_000),
   });
 
-  const client = new mod.default({ apiKey: config.aiApiKey });
-  const model = config.aiModel || "claude-opus-5";
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new LlmHttpError(`${config.aiBaseUrl} returned HTTP ${res.status}: ${body.slice(0, 300)}`, res.status);
+  }
 
-  const message = (await client.messages.create({
-    model,
-    max_tokens: 4000,
-    system,
-    messages: [{ role: "user", content: user }],
-    output_config: { format: { type: "json_schema", schema } },
-  })) as {
-    content: Array<{ type: string; text?: string }>;
-    usage: { input_tokens: number; output_tokens: number };
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
 
-  const text = message.content.find((b) => b.type === "text")?.text ?? "";
-  if (!text) throw new Error("Model returned no text block");
+  const text = data.choices?.[0]?.message?.content ?? "";
+  if (!text) throw new Error("Model returned no content");
 
   return {
     json: JSON.parse(text) as Record<string, unknown>,
     usage: {
-      inputTokens: message.usage.input_tokens,
-      outputTokens: message.usage.output_tokens,
+      inputTokens: data.usage?.prompt_tokens ?? 0,
+      outputTokens: data.usage?.completion_tokens ?? 0,
     },
-    model,
+    model: config.aiModel,
   };
 }

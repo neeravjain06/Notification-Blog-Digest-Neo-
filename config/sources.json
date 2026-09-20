@@ -1,1 +1,27 @@
-[]
+[
+  {
+    "id": "et-foreign-trade",
+    "label": "Economic Times - Foreign Trade",
+    "url": "https://economictimes.indiatimes.com/news/economy/foreign-trade/rssfeeds/13352306.cms"
+  },
+  {
+    "id": "business-standard-economy-policy",
+    "label": "Business Standard - Economy Policy",
+    "url": "https://www.business-standard.com/rss/economy-policy-103.rss"
+  },
+  {
+    "id": "livemint-economy",
+    "label": "Livemint - Economy",
+    "url": "https://www.livemint.com/rss/economy"
+  },
+  {
+    "id": "hindu-businessline-agri",
+    "label": "The Hindu BusinessLine - Agri Business",
+    "url": "https://www.thehindubusinessline.com/economy/agri-business/feeder/default.rss"
+  },
+  {
+    "id": "toi-business",
+    "label": "Times of India - Business",
+    "url": "https://timesofindia.indiatimes.com/rssfeeds/1898055.cms"
+  }
+]

@@ -100,12 +100,23 @@ export async function runCycle(pipeline: Pipeline): Promise<CycleReport> {
     const result = await summarize(item);
 
     if (!result.ok) {
-      newSeen.push(seenEntry(item, result.outcome, result.reason));
       report.skipped.push({
         sourceRef: item.sourceRef,
         outcome: result.outcome,
         reason: result.reason,
       });
+      if (result.outcome === "failed-transient") {
+        // Not recorded in seen.json - the item retries next cycle. A fatal failure (bad
+        // key, bad model, no credits) will fail every remaining item too, so stop now
+        // rather than spending a call on each.
+        if (result.fatal) {
+          report.aborted = true;
+          report.error = `LLM call failed and cannot be retried: ${result.reason}`;
+          break;
+        }
+        continue;
+      }
+      newSeen.push(seenEntry(item, result.outcome, result.reason));
       continue;
     }
 
@@ -119,7 +130,7 @@ export async function runCycle(pipeline: Pipeline): Promise<CycleReport> {
   if (report.published) writePosts(pipeline, posts);
 
   ps.lastRunAt = new Date().toISOString();
-  ps.lastError = null;
+  ps.lastError = report.error ?? null;
   writeState(state);
 
   return report;

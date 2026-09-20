@@ -1,5 +1,5 @@
 import { blogTopics } from "../config.js";
-import { readPosts } from "../store.js";
+import { readPosts, readSeen } from "../store.js";
 import type { RawItem } from "../types.js";
 
 /**
@@ -10,7 +10,12 @@ import type { RawItem } from "../types.js";
 export async function nextBlogTopic(contextCount = 10): Promise<RawItem[]> {
   if (!blogTopics.length) return [];
 
-  const used = new Set(readPosts("blogs").map((p) => p.sourceRef));
+  // A topic whose draft was rejected is in seen.json but not in posts; without this the
+  // same rejected topic would be picked every cycle and the queue would never advance.
+  const used = new Set([
+    ...readPosts("blogs").map((p) => p.sourceRef),
+    ...readSeen().filter((s) => s.pipeline === "blogs").map((s) => s.sourceRef),
+  ]);
   const topic = blogTopics.find((t) => !used.has(t.id));
   if (!topic) return [];
 

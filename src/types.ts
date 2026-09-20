@@ -67,7 +67,9 @@ export type Outcome =
   | "skipped-duplicate"
   | "skipped-quality"
   | "skipped-guardrail"
-  | "skipped-cap";
+  | "skipped-cap"
+  /** Network, rate-limit, 5xx or auth failure. Never written to seen.json - the item retries. */
+  | "failed-transient";
 
 export type SeenEntry = {
   key: string;

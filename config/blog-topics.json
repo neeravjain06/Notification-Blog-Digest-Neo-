@@ -1,1 +1,77 @@
-[]
+[
+  {
+    "id": "icegate-boe-basics",
+    "title": "Bill of Entry on ICEGATE — what Neo clients must get right before filing",
+    "angle": "BoE prep for Cochin/Chennai importers; docs and common query triggers"
+  },
+  {
+    "id": "shipping-bill-export-flow",
+    "title": "Shipping Bill timeline for Cochin exports — from docs to LEO",
+    "angle": "SB checklist, stuffing, seals, VGM, LEO in Neo desk language"
+  },
+  {
+    "id": "dgft-restricted-vs-free",
+    "title": "Free vs Restricted vs Prohibited — reading DGFT policy without panic",
+    "angle": "How to read ITC(HS) policy status before the next shipment"
+  },
+  {
+    "id": "pga-fssai-pq",
+    "title": "When FSSAI / Plant Quarantine shows up on your Bill of Entry",
+    "angle": "PGA basics for food and agro cargo and what docs Neo asks for"
+  },
+  {
+    "id": "cashew-cochin-desk",
+    "title": "Cashew kernels via Cochin — documents and desk reality",
+    "angle": "Neo specialty corridor docs and clearance tips"
+  },
+  {
+    "id": "chemicals-sds-import",
+    "title": "Importing industrial chemicals — SDS, UN DG, and Cochin clearance",
+    "angle": "Practical checklist for chemicals / TiO₂ style cargo"
+  },
+  {
+    "id": "steel-metals-docs",
+    "title": "Steel and metals imports — mill test certs and anti-dumping awareness",
+    "angle": "What Neo asks for on steel/metal BoEs"
+  },
+  {
+    "id": "aeo-lo-why-it-matters",
+    "title": "What Neo’s AEO-LO means for your clearance experience",
+    "angle": "Client-facing AEO-LO explainer without overclaiming"
+  },
+  {
+    "id": "incoterms-fob-cif-india",
+    "title": "FOB vs CIF for India import clearance — who owns what",
+    "angle": "Freight vs customs responsibility; when Neo CHA steps in"
+  },
+  {
+    "id": "container-detention-free-days",
+    "title": "Free days, detention, and demurrage — plan before the vessel berths",
+    "angle": "Why early docs and delivery planning matter"
+  },
+  {
+    "id": "chennai-vs-cochin-desk",
+    "title": "Cochin desk vs Chennai desk — which Neo office for your cargo",
+    "angle": "Which Neo office to route the job to"
+  },
+  {
+    "id": "fta-coo-basics",
+    "title": "Claiming FTA duty benefit — Certificate of Origin without the jargon",
+    "angle": "When CoO matters and common mistakes"
+  },
+  {
+    "id": "kyc-onboarding-neo",
+    "title": "Onboarding with Neo — KYC docs that unblock your first filing",
+    "angle": "IEC, GST, authorisation, AD code for new clients"
+  },
+  {
+    "id": "self-sealing-rfid",
+    "title": "Factory stuffing and RFID / high-security seals — exporter checklist",
+    "angle": "Seal custody and verification per Neo SOP"
+  },
+  {
+    "id": "weekly-trade-pulse",
+    "title": "This week in India trade policy — what Neo clients should skim",
+    "angle": "Short weekly trade/policy briefing template for Neo clients"
+  }
+]

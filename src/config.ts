@@ -15,8 +15,13 @@ function str(name: string, fallback = ""): string {
   return (process.env[name] ?? fallback).trim();
 }
 
+/** Neo's scaffold prefixes this service's vars with DIGEST_; accept either spelling. */
+function env(name: string): string {
+  return str(`DIGEST_${name}`) || str(name);
+}
+
 function num(name: string, fallback: number): number {
-  const raw = str(name);
+  const raw = env(name);
   if (!raw) return fallback;
   const n = Number(raw);
   if (!Number.isFinite(n)) {
@@ -44,8 +49,14 @@ function loadJsonConfig<T>(file: string): T[] {
 }
 
 const provider = str("AI_PROVIDER", "stub");
-const apiKey = str("AI_API_KEY");
-const adminToken = str("ADMIN_TOKEN");
+// Matches the field names in Neo's real scaffold env file: OpenRouter, an
+// OpenAI-compatible REST API, is the actual provider - not a guess.
+const apiKey = str("OPENAI_API_KEY");
+const baseUrl = str("OPENAI_BASE_URL", "https://openrouter.ai/api/v1");
+// DIGEST_AI_MODEL is this service's own override in the scaffold; AI_MODEL is the
+// shared default other services in that scaffold also read.
+const aiModel = str("DIGEST_AI_MODEL") || str("AI_MODEL");
+const adminToken = env("ADMIN_TOKEN");
 
 const enabledRaw = str("ENABLED_PIPELINES", ALL_PIPELINES.join(","));
 const enabled = enabledRaw
@@ -66,25 +77,42 @@ if (!adminToken) {
   );
 }
 
+if (provider !== "stub" && provider !== "openai") {
+  fail(`AI_PROVIDER must be "stub" or "openai", got "${provider}"`);
+}
+
 if (provider !== "stub" && !apiKey) {
   fail(
-    `AI_PROVIDER is "${provider}" but AI_API_KEY is empty.\n` +
+    `AI_PROVIDER is "${provider}" but OPENAI_API_KEY is empty.\n` +
       "        A real provider without a key is a misconfiguration. Either supply the key,\n" +
       "        or set AI_PROVIDER=stub to run the offline summariser.",
   );
 }
 
+if (provider !== "stub" && !aiModel) {
+  fail(
+    `AI_PROVIDER is "${provider}" but no model is set (DIGEST_AI_MODEL or AI_MODEL).\n` +
+      "        Without this every summarise call fails at runtime and every item is silently\n" +
+      "        skipped - catch it here instead of in the skip log.",
+  );
+}
+
 export const config = {
-  port: num("PORT", 8791),
+  // NOT PORT: in the scaffold .env that is the main app's port (8787).
+  port: Number(str("NOTIFICATIONS_DIGEST_PORT", "8791")),
 
   aiProvider: provider,
   aiApiKey: apiKey,
-  aiModel: str("AI_MODEL"),
+  aiBaseUrl: baseUrl,
+  aiModel,
 
   scanIntervalHours: num("SCAN_INTERVAL_HOURS", 24),
   blogIntervalHours: num("BLOG_INTERVAL_HOURS", 168),
   maxPublishPerDay: num("MAX_PUBLISH_PER_DAY", 5),
   minOkChannels: num("MIN_OK_CHANNELS", 2),
+
+  autoMachine: ["1", "true", "yes"].includes(str("DIGEST_AUTO_MACHINE").toLowerCase()),
+  bootDelayMs: num("BOOT_DELAY_MS", 15000),
 
   adminToken,
   publishExportDir: str("PUBLISH_EXPORT_DIR"),
