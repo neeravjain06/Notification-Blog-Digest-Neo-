@@ -131,10 +131,7 @@ export async function runCycle(pipeline: Pipeline): Promise<CycleReport> {
   }
 
   if (newSeen.length) writeSeen([...seen, ...newSeen]);
-  // Sorted newest-first on write, not just when served by the API - a consumer reading
-  // this file directly (e.g. the main site syncing from a shared volume) gets the same
-  // order our own /api/posts/:pipeline returns, instead of raw append order.
-  if (report.published) writePosts(pipeline, [...posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)));
+  if (report.published) writePosts(pipeline, posts);
 
   ps.lastRunAt = new Date().toISOString();
   ps.lastError = report.error ?? null;

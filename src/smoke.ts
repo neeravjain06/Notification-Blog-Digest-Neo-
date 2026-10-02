@@ -5,6 +5,7 @@ import { guardrailViolation } from "./guardrails.js";
 import { tagIndustries } from "./industries.js";
 import { LlmHttpError, normalizeBaseUrl } from "./llm.js";
 import { isTradeRelevant } from "./relevance.js";
+import { sortPostsNewestFirst } from "./store.js";
 import { classify } from "./summarize.js";
 import { isJunkTitle, parseDate, rowIsValid, runChannel } from "./sources/common.js";
 import { parseFeed } from "./sources/rss.js";
@@ -52,6 +53,40 @@ check("a network failure is transient; a bad JSON body or code bug is not", () =
   assert.deepEqual(classify(new TypeError("fetch failed")), { kind: "transient", fatal: false });
   assert.deepEqual(classify(new SyntaxError("Unexpected token")), { kind: "quality" });
   assert.deepEqual(classify(new TypeError("Cannot read properties of undefined")), { kind: "quality" });
+});
+
+console.log("\n--- post ordering ---");
+const post = (publishedAt: string, title = "x"): Post => ({
+  id: title,
+  pipeline: "news",
+  slug: title,
+  title,
+  excerpt: "",
+  body: "x".repeat(50),
+  impact: "",
+  industries: ["general-trade"],
+  tags: ["general-trade"],
+  source: "rss",
+  sourceRef: title,
+  publishedAt,
+  sourceUrl: "https://example.com",
+  disclaimer: "",
+  engine: "stub",
+});
+check("newest publishedAt sorts first - this is the exact field writePosts and the API order by", () => {
+  const scrambled = [post("2026-09-22T00:00:00Z", "a"), post("2026-10-01T00:00:00Z", "b"), post("2026-09-23T00:00:00Z", "c")];
+  const out = sortPostsNewestFirst(scrambled).map((p) => p.title);
+  assert.deepEqual(out, ["b", "c", "a"]);
+});
+check("a plain append-order array (oldest written first) is NOT already in the right order - this is the exact on-disk shape the bug produced", () => {
+  const appended = [post("2026-09-20T10:03:38Z"), post("2026-09-20T10:03:41Z"), post("2026-09-20T10:03:44Z")];
+  assert.notDeepEqual(sortPostsNewestFirst(appended), appended);
+});
+check("sorting does not mutate the input array - callers reusing `posts` after the sort must see the original order", () => {
+  const original = [post("2026-09-20T00:00:00Z", "old"), post("2026-09-21T00:00:00Z", "new")];
+  const before = [...original];
+  sortPostsNewestFirst(original);
+  assert.deepEqual(original, before);
 });
 
 console.log("\n--- news relevance ---");

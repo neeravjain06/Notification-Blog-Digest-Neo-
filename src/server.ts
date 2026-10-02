@@ -4,7 +4,7 @@ import { config } from "./config.js";
 import { currentMonth, monthlyCosts } from "./costs.js";
 import { runCycle, type CycleReport } from "./cycle.js";
 import { isPipeline, PIPELINES } from "./pipelines.js";
-import { readPosts, readState } from "./store.js";
+import { readPosts, readState, sortPostsNewestFirst } from "./store.js";
 import type { Pipeline } from "./types.js";
 
 // ponytail: single process, in-memory lock. The JSON store has no file locking, so two
@@ -51,9 +51,11 @@ app.get("/api/posts/:pipeline", (req, res) => {
     return;
   }
   const industry = typeof req.query.industry === "string" ? req.query.industry : "";
-  const posts = readPosts(pipeline)
-    .filter((p) => !industry || p.industries.includes(industry))
-    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  // Defensive, not load-bearing: writePosts already persists newest-first. Re-sorting
+  // here means this endpoint is still correct even against a file edited by hand.
+  const posts = sortPostsNewestFirst(readPosts(pipeline)).filter(
+    (p) => !industry || p.industries.includes(industry),
+  );
   res.json({ pipeline, label: PIPELINES[pipeline].label, count: posts.length, posts });
 });
 

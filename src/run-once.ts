@@ -83,10 +83,11 @@ async function fullRun(pipeline: Pipeline): Promise<void> {
     }
   }
 
-  // Guard the slice: slice(-0) returns the whole array, which would print every
-  // existing post on a run that published nothing.
+  // readPosts() is newest-first (writePosts guarantees this), so the posts from THIS run
+  // are the first N entries, not the last N - slicing from the end would show the oldest
+  // posts in the file instead of the ones just published.
   if (report.published > 0) {
-    for (const post of readPosts(pipeline).slice(-report.published)) {
+    for (const post of readPosts(pipeline).slice(0, report.published)) {
       console.log(`\n  --- ${post.title}`);
       console.log(`  engine=${post.engine} industries=${post.industries.join(",")}`);
       console.log(`  ${post.excerpt}`);

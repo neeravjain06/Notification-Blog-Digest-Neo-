@@ -19,8 +19,9 @@ export async function nextBlogTopic(contextCount = 10): Promise<RawItem[]> {
   const topic = blogTopics.find((t) => !used.has(t.id));
   if (!topic) return [];
 
+  // readPosts() is newest-first, so the N most recent are the first N, not the last N.
   const recent = readPosts("notifications")
-    .slice(-contextCount)
+    .slice(0, contextCount)
     .map((p) => `- ${p.title} (${p.sourceRef}, ${p.publishedAt})`)
     .join("\n");
 

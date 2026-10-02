@@ -79,8 +79,15 @@ export function readPosts(pipeline: Pipeline): Post[] {
   return readJson<Post[]>(dataPath(`posts-${pipeline}.json`), []);
 }
 
+/** Single source of truth for post order - used on write here and again defensively wherever posts are served. */
+export function sortPostsNewestFirst(posts: Post[]): Post[] {
+  return [...posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+}
+
 export function writePosts(pipeline: Pipeline, posts: Post[]): void {
-  writeJson(dataPath(`posts-${pipeline}.json`), posts);
+  // Sorted on every write, not just by the call site that happens to remember to - a
+  // consumer reading posts-*.json directly off disk must never see raw append order.
+  writeJson(dataPath(`posts-${pipeline}.json`), sortPostsNewestFirst(posts));
 }
 
 export function readSeen(): SeenEntry[] {
