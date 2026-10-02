@@ -109,6 +109,8 @@ export const config = {
   scanIntervalHours: num("SCAN_INTERVAL_HOURS", 24),
   blogIntervalHours: num("BLOG_INTERVAL_HOURS", 168),
   maxPublishPerDay: num("MAX_PUBLISH_PER_DAY", 5),
+  // Source listings include old notices - without a cutoff they publish years-old ones.
+  maxAgeDays: num("MAX_AGE_DAYS", 90),
   minOkChannels: num("MIN_OK_CHANNELS", 2),
 
   autoMachine: ["1", "true", "yes"].includes(str("DIGEST_AUTO_MACHINE").toLowerCase()),

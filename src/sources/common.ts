@@ -1,7 +1,7 @@
 import type { ChannelHealth, Pipeline, RawItem } from "../types.js";
 
 /** Ported verbatim from the old scrape.ts - government sites 403 a bare fetch UA. */
-const UA =
+export const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 NeoDigest/3.0";
 
 export async function fetchText(url: string): Promise<string> {

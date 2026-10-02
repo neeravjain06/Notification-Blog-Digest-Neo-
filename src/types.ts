@@ -16,6 +16,8 @@ export type RawItem = {
   /** Fuller text handed to the summariser: subject line, or fetched body when available. */
   rawSubject: string;
   bodyText?: string;
+  /** Notifications only: CBIC's own filter ("Tariff" | "Non Tariff" | "Anti Dumping Duty") or "DGFT". */
+  category?: string;
 };
 
 export type ChannelHealth = {
@@ -32,7 +34,7 @@ export type ScrapeBundle = {
   health: ChannelHealth[];
   okChannels: number;
   totalChannels: number;
-  /** News items dropped for not mentioning any trade term. Always 0 for other pipelines. */
+  /** Items dropped as too old (any pipeline) or, for news, for not mentioning any trade term. */
   filteredOut: number;
 };
 
@@ -57,6 +59,9 @@ export type Post = {
   tags: string[];
   source: SourceName;
   sourceRef: string;
+  /** See RawItem.category. Absent on posts written before categories existed - read it via postCategory(). */
+  category?: string;
+  /** When the SOURCE posted it (CBIC/DGFT notice date, RSS pubDate), not when we scraped it. Drives sort order. */
   publishedAt: string;
   sourceUrl: string;
   disclaimer: string;

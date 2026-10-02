@@ -84,6 +84,11 @@ export function sortPostsNewestFirst(posts: Post[]): Post[] {
   return [...posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 }
 
+/** Posts written before categories existed are all DGFT (the old CBIC courier channels never published). */
+export function postCategory(p: Post): string {
+  return p.category ?? (p.source === "dgft" ? "DGFT" : "");
+}
+
 export function writePosts(pipeline: Pipeline, posts: Post[]): void {
   // Sorted on every write, not just by the call site that happens to remember to - a
   // consumer reading posts-*.json directly off disk must never see raw append order.

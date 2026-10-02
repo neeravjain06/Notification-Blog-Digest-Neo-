@@ -1,7 +1,7 @@
 import { config, rssSources } from "../config.js";
 import type { ChannelHealth, Pipeline, RawItem, ScrapeBundle } from "../types.js";
-import { scrapeCbicCirculars, scrapeCbicNotifications } from "./cbic.js";
-import { isTradeRelevant } from "../relevance.js";
+import { scrapeCbicCategory } from "./cbic.js";
+import { isRecent, isTradeRelevant } from "../relevance.js";
 import { runChannel, type ChannelResult } from "./common.js";
 import { scrapeDgftCategory } from "./dgft.js";
 import { scrapeRssFeed } from "./rss.js";
@@ -21,8 +21,9 @@ function channelsFor(pipeline: Pipeline): Array<Promise<ChannelResult>> {
   switch (pipeline) {
     case "notifications":
       return [
-        runChannel("cbic-eccs-notifications", pipeline, () => scrapeCbicNotifications(20)),
-        runChannel("cbic-eccs-circulars", pipeline, () => scrapeCbicCirculars(12)),
+        runChannel("cbic-tariff", pipeline, () => scrapeCbicCategory("Tariff", "cbic-tariff", 15)),
+        runChannel("cbic-non-tariff", pipeline, () => scrapeCbicCategory("Non Tariff", "cbic-non-tariff", 15)),
+        runChannel("cbic-anti-dumping", pipeline, () => scrapeCbicCategory("Anti Dumping Duty", "cbic-anti-dumping", 15)),
         runChannel("dgft-notifications", pipeline, () => scrapeDgftCategory(1, "dgft-notifications", 15)),
         runChannel("dgft-public-notices", pipeline, () => scrapeDgftCategory(2, "dgft-public-notices", 12)),
         runChannel("dgft-trade-notices", pipeline, () => scrapeDgftCategory(4, "dgft-trade-notices", 12)),
@@ -72,7 +73,7 @@ export async function fetchPipeline(pipeline: Pipeline): Promise<ScrapeBundle> {
   }
 
   // Applied after the health gate on purpose: an off-topic feed is healthy, just not useful.
-  const kept = pipeline === "news" ? items.filter(isTradeRelevant) : items;
+  const kept = items.filter((i) => isRecent(i) && (pipeline !== "news" || isTradeRelevant(i)));
 
   kept.sort((a, b) => b.date.localeCompare(a.date));
   return { items: kept, health, okChannels, totalChannels: jobs.length, filteredOut: items.length - kept.length };

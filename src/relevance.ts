@@ -1,4 +1,4 @@
-import { newsKeywords } from "./config.js";
+import { config, newsKeywords } from "./config.js";
 import { keywordPattern } from "./industries.js";
 import type { RawItem } from "./types.js";
 
@@ -13,4 +13,9 @@ const PATTERNS = newsKeywords.map(keywordPattern);
 export function isTradeRelevant(item: RawItem): boolean {
   const text = `${item.title} ${item.bodyText ?? ""}`;
   return PATTERNS.some((re) => re.test(text));
+}
+
+/** Drops items the source posted more than maxAgeDays ago. item.date is the source's own date. */
+export function isRecent(item: RawItem, maxAgeDays = config.maxAgeDays, now = Date.now()): boolean {
+  return now - Date.parse(item.date) <= maxAgeDays * 86_400_000;
 }

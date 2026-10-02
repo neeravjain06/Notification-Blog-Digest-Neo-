@@ -28,12 +28,23 @@ function renderMarkdown(md) {
   return html.join("");
 }
 
+// publishedAt is the SOURCE's date (CBIC/DGFT notice date, RSS pubDate), stored as midnight UTC.
+// Read the date straight from the string (no timezone shift) and print it CBIC-style: 30-Sep-2026.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const fmtDate = (iso) => {
+  const [y, m, d] = String(iso).slice(0, 10).split("-");
+  return MONTHS[Number(m) - 1] ? `${d}-${MONTHS[Number(m) - 1]}-${y}` : String(iso);
+};
+
+// Values are what the API stores (CBIC's own filter names); labels are what the chips show.
+const CATEGORY_LABELS = { Tariff: "Tariff", "Non Tariff": "Non-Tariff", "Anti Dumping Duty": "Anti-Dumping", DGFT: "DGFT" };
+
 function card(p) {
   const stub = p.engine === "stub";
   const link = safeUrl(p.sourceUrl);
   return `<article class="card">
     <h2>${esc(p.title)}</h2>
-    <div class="meta">${esc(p.publishedAt.slice(0, 10))} · ${esc(p.sourceRef.length > 40 ? p.source : p.sourceRef)}
+    <div class="meta">${p.category ? `<span class="badge">${esc(CATEGORY_LABELS[p.category] ?? p.category)}</span> · ` : ""}Published ${esc(fmtDate(p.publishedAt))} · ${esc(p.sourceRef.length > 40 ? p.source : p.sourceRef)}
       · <span class="badge ${stub ? "stub" : ""}">${stub ? "STUB - placeholder text" : esc(p.engine)}</span>
       · ${p.industries.map(esc).join(", ")}</div>
     <p>${esc(p.excerpt)}</p>
@@ -47,17 +58,40 @@ function card(p) {
 async function loadPage(pipeline) {
   const postsEl = document.getElementById("posts");
   const filtersEl = document.getElementById("filters");
+  const categoriesEl = document.getElementById("categories");
   let active = "";
+  let category = "";
 
   async function load() {
-    const q = active ? `?industry=${encodeURIComponent(active)}` : "";
+    const params = new URLSearchParams();
+    if (active) params.set("industry", active);
+    if (category) params.set("category", category);
+    const q = params.size ? `?${params}` : "";
     const res = await fetch(`/api/posts/${pipeline}${q}`);
     if (!res.ok) { postsEl.innerHTML = `<p class="muted">Failed to load (HTTP ${res.status}).</p>`; return; }
     const data = await res.json();
     postsEl.innerHTML = data.posts.length
       ? data.posts.map(card).join("")
-      : `<p class="muted">No posts yet. Use "Run now" on the <a href="/">admin panel</a>.</p>`;
+      : q
+        ? `<p class="muted">No posts in this filter yet.</p>`
+        : `<p class="muted">No posts yet. Use "Run now" on the <a href="/">admin panel</a>.</p>`;
     return data.posts;
+  }
+
+  // Category chips are fixed (only notifications.html has the container), so an empty
+  // category still shows - "nothing under Anti-Dumping yet" is useful to see.
+  if (categoriesEl) {
+    const cats = ["", ...Object.keys(CATEGORY_LABELS)];
+    categoriesEl.innerHTML = cats
+      .map((c) => `<button class="chip ${c === "" ? "on" : ""}" data-c="${esc(c)}">${esc(c ? CATEGORY_LABELS[c] : "All")}</button>`)
+      .join("");
+    categoriesEl.addEventListener("click", async (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      category = b.dataset.c;
+      categoriesEl.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === b));
+      await load();
+    });
   }
 
   // Build the filter chips once, from the unfiltered list.

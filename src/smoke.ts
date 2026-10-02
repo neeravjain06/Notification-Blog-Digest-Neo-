@@ -4,10 +4,11 @@ import { checkDuplicate, dedupeKey, titleSimilarity } from "./dedupe.js";
 import { guardrailViolation } from "./guardrails.js";
 import { tagIndustries } from "./industries.js";
 import { LlmHttpError, normalizeBaseUrl } from "./llm.js";
-import { isTradeRelevant } from "./relevance.js";
+import { isRecent, isTradeRelevant } from "./relevance.js";
 import { sortPostsNewestFirst } from "./store.js";
 import { classify } from "./summarize.js";
 import { isJunkTitle, parseDate, rowIsValid, runChannel } from "./sources/common.js";
+import { mapCbicRow } from "./sources/cbic.js";
 import { parseFeed } from "./sources/rss.js";
 import type { CostEntry, Post, RawItem, SeenEntry } from "./types.js";
 
@@ -105,6 +106,48 @@ check("the feed description counts, not just the title", () => {
 check("keywords match whole words, not substrings", () => {
   assert.equal(isTradeRelevant(news("Airport terminal opens", "Passenger transport report")), false);
   assert.equal(isTradeRelevant(news("Tea board news", "Rapport with partners improves")), false);
+});
+
+console.log("\n--- recency ---");
+const NOW = Date.parse("2026-10-02T12:00:00Z");
+check("a notice posted within the window is kept", () => {
+  assert.equal(isRecent(notice({ date: "2026-09-30" }), 90, NOW), true);
+});
+check("an archive notice from years back is dropped", () => {
+  assert.equal(isRecent(notice({ date: "2020-12-31" }), 90, NOW), false);
+  assert.equal(isRecent(notice({ date: "2026-06-01" }), 90, NOW), false);
+});
+
+console.log("\n--- cbic tax information rows ---");
+check("a real ADD row maps to the notice date, number and viewer link", () => {
+  const item = mapCbicRow(
+    {
+      id: 1010764,
+      notificationNo: "24/2026-Customs (ADD)",
+      notificationName: "Seeks to amend Notification No. 33/2022-Customs (ADD) imposing Anti-dumping Duty on Jute Products.",
+      notificationDt: "2026-09-24T05:30:00+05:30",
+    },
+    "Anti Dumping Duty",
+    "cbic-anti-dumping",
+  );
+  assert.equal(item.date, "2026-09-24");
+  assert.equal(item.sourceRef, "24/2026-Customs (ADD)");
+  assert.equal(item.sourceUrl, "https://taxinformation.cbic.gov.in/view-pdf/1010764/ENG/Notifications");
+  assert.equal(rowIsValid(item), true);
+});
+check("a corrigendum row (no number) still passes the shape check", () => {
+  const item = mapCbicRow(
+    {
+      id: 1010750,
+      notificationNo: "Corrigendum",
+      notificationName: "Corrigendum to Notification No. 28/2026-Customs dated 10th July, 2026",
+      notificationDt: "2026-07-28T05:30:00+05:30",
+    },
+    "Tariff",
+    "cbic-tariff",
+  );
+  assert.match(item.sourceRef, /^Corrigendum: .*28\/2026/);
+  assert.equal(rowIsValid(item), true);
 });
 
 console.log("\n--- date parsing ---");

@@ -17,7 +17,7 @@ export type CycleReport = {
   aborted: boolean;
   error?: string;
   parsed: number;
-  /** Items dropped as off-topic before dedupe (news only). */
+  /** Items dropped before dedupe: too old, or (news) off-topic. */
   filtered: number;
   published: number;
   skipped: Array<{ sourceRef: string; outcome: Outcome; reason: string }>;
